@@ -1,0 +1,19 @@
+[package]
+name = "casterm"
+version = "0.1.0"
+authors = ["Jayden Dumouchel <jdumouch@ualberta.ca>"]
+edition = "2018"
+
+[dependencies]
+# Async
+tokio = { version = "0.2", features = ["full"] } 
+
+# Chromecast
+rust_cast = "0.15.1" 
+mdns = "1.1.0"
+futures-util = "*"
+futures = "*"
+warp = "0.2"
+
+# Video Conversion
+ffmpeg = { package ="ffmpeg-next", version= "4.3.6" }
