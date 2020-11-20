@@ -1,5 +1,5 @@
 [package]
-name = "casterm"
+name = "term-cast"
 version = "0.1.0"
 authors = ["Jayden Dumouchel <jdumouch@ualberta.ca>"]
 edition = "2018"
