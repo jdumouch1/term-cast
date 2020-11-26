@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-mod fileserver;
+mod media;
 mod cast;
 
 use std::io::{self, Write};
@@ -12,7 +12,7 @@ use cast::Caster;
 async fn main() {
     let media_file = String::from("test.mp4"); //select_file();
     println!("Hosting media.");
-    let (_addr, _shutdown) = fileserver::host_media(media_file).await.unwrap();
+    let (_addr, _shutdown) = media::host_media(media_file).await.unwrap();
     println!("Finding chromecasts.");
     let device_ips = cast::find_device_ips().await.unwrap();
     let device_ip = device_ips.first().unwrap();

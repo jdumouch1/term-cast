@@ -3,7 +3,11 @@
 
 use warp::Filter;
 use tokio::sync::{Mutex, broadcast};
-use std::{net::UdpSocket, sync::Arc, thread};
+use std::{
+    net::UdpSocket, 
+    sync::mpsc::Receiver, 
+    thread, time::SystemTime
+};
 use rust_cast::{channels::receiver::Application, CastDevice, ChannelMessage};
 use rust_cast::channels::{
     heartbeat::HeartbeatResponse,
@@ -58,6 +62,7 @@ enum MediaState {
 
 pub struct Caster {
     cast_addr: String,
+    status_rx: Receiver<StatusEntry>,
 }
 
 
@@ -65,6 +70,8 @@ pub struct Caster {
 impl Caster {
     pub fn spawn(cast_addr: String) -> Result<Self, CastError> {
         let addr = cast_addr.clone();
+        let mut last_iter = SystemTime::now();
+        let (tx, rx) = std::sync::mpsc::channel::<StatusEntry>();
         thread::spawn(move || {
             let device = CastDevice::connect_without_host_verification(addr, 8009).unwrap();
             device.connection.connect(DESTINATION_ID).unwrap();
@@ -74,7 +81,9 @@ impl Caster {
                 &CastDeviceApp::DefaultMediaReceiver).unwrap();
             
             device.connection.connect(app.transport_id.to_string()).unwrap();
-        
+            let transport_id = app.transport_id.to_string();
+            let session_id = app.session_id.to_string();
+
             // Begin playback
             device.media.load(
                 app.transport_id.to_string(), 
@@ -106,9 +115,27 @@ impl Caster {
                                    message from chromecast:\n{:?}", err); 
                     }
                 }
+
+                let elapsed = last_iter.elapsed().unwrap().as_millis();
+                if elapsed >= 1000 {
+                    // Retrieve media status
+                    let statuses = device.media
+                        .get_status(&transport_id, None)
+                        .unwrap();
+                    let status = statuses.entries.first().unwrap();
+                    // Send to main thread
+                    if let Err(err) = tx.send(status.clone()) {
+                        eprintln!(
+                            "Failed to send media status to main thread: {:?}",
+                            err);
+                    }
+                    // Re-up the timer
+                    last_iter = SystemTime::now();
+                }
+                
             }
         });
-        Ok(Self { cast_addr })
+        Ok(Self { cast_addr, status_rx: rx })
     }
 
     pub fn begin_playback(&self) -> Result<(), CastError> {
