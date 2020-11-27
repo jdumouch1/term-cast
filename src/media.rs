@@ -20,7 +20,11 @@ pub async fn host_media(media: String) -> Result<(String, oneshot::Sender<()>), 
     Ok((media_addr, shutdown_sender))
 }
 
-pub fn convert_to_mp4(input: String) { 
+
+// TODO: Windows compatability
+// TODO: Dynamic conversion based on filetypes/codecs
+// TODO: Threading
+pub fn prepare_file(input: String) { 
     // let probe = Command::new("sh")
     //     .arg("-c")
     //     .arg(format!("ffprobe -v error -select_streams v:0 -show_entries stream=codec_name \
@@ -28,25 +32,11 @@ pub fn convert_to_mp4(input: String) {
     //     .output()
     //     .unwrap();
 
-
-    // TODO: Windows compatability
-    let mut ffmpeg = Command::new("sh")
+    let _ffmpeg = Command::new("sh")
         .arg("-c")
         .arg(format!("ffmpeg -y -i {} -c copy host_media.mp4", input))
         .spawn()
         .unwrap();
-
-    loop {
-        match &ffmpeg.try_wait() {
-            Ok(_) => {
-                if let Some(out) = ffmpeg.stdout{
-                    println!("{:?}", out);                    
-                }
-                break;
-            },
-            Err(_) => {},
-        };
-    };
 }
 
 

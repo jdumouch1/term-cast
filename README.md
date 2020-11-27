@@ -11,7 +11,7 @@ Once completed, term-cast is a cross-platform TUI Chromecast controller that can
 
 ### Author
 
-[Jayden Dumouchel](jdumouch@ualberta.ca)
+[Jayden Dumouchel](mailto:jdumouch@ualberta.ca)
 
 ### License
 

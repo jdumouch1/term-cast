@@ -22,14 +22,6 @@ const DESTINATION_ID: &'static str = "receiver-0";
 const SERVICE_NAME: &'static str = "_googlecast._tcp.local";
 const TIMEOUT_SECONDS: u64 = 3;
 
-#[derive(Clone)]
-pub enum CastEvent {
-    Play(String),
-    Pause,
-    Stop,
-    Kill,
-}
-
 enum PlayerSignal {
     Play, // Resume
     Pause, 
@@ -216,7 +208,7 @@ impl Caster {
     }
 
     /// Seek current playback to specified time.
-    /// # Arguments 
+    /// ### Arguments 
     /// * time - A float representing the time in seconds to
     ///     seek to.
     pub fn seek(&self, time: f32) -> Result<(), CastError> {
@@ -228,7 +220,7 @@ impl Caster {
     /// on the current playback. 
     /// ### Arguments
     /// * state - A MediaState to apply to the current playback
-    fn change_media_state(&self, state: PlayerSignal) -> Result<(), CastError> {
+    fn change_media_state(&self, state: PlayerSignal) -> Result<(),CastError> {
         // Open a new connection
         let device = self.connect()?;
         let status = device.receiver.get_status()?;
@@ -273,6 +265,9 @@ impl Caster {
         Ok(())
     }
 
+    /// Create a new CastDevice connection.  
+    /// *Note: This connection must either be kept-alive with ping/pong 
+    /// or closed after a short period of time.*
     fn connect(&self) -> Result<CastDevice, CastError> {
         let device = match CastDevice::connect_without_host_verification(
             &self.device_addr, 
@@ -289,7 +284,7 @@ impl Caster {
 }
 
 /// Scan DNS records matching chromecast service names.  
-/// # Returns
+/// ### Returns
 /// Vec\<IpAddr\> - A Result containing a list of chromecast
 ///     IP addresses discovered on the network. 
 pub async fn find_device_ips() -> Result<Vec<IpAddr>, mdns::Error> {
@@ -300,7 +295,7 @@ pub async fn find_device_ips() -> Result<Vec<IpAddr>, mdns::Error> {
     // Create the discovery stream
     let stream = mdns::discover::all(SERVICE_NAME, timeout)?
         .listen()
-        .take_while(|_| future::ready(start_time.elapsed().unwrap() < timeout));
+        .take_while(|_|future::ready(start_time.elapsed().unwrap() < timeout));
     pin_mut!(stream);
 
     // Listen and add devices to vec
@@ -319,8 +314,13 @@ pub async fn find_device_ips() -> Result<Vec<IpAddr>, mdns::Error> {
     Ok(device_ips)
 }
 
+/// Convert a DNS record to IpAddr
+/// ### Returns
+/// ```Some<IpAddr>``` If record is A or AAAA  
+/// Otherwise   
+/// ```None```   
 fn to_ip_addr(record: &Record) -> Option<IpAddr> {
-    //TODO: Match the record friendly name with IP address using the id to match them
+    //TODO: Match the record friendly name with IP address on record id
     match record.kind {
         RecordKind::A(addr) => Some(addr.into()),
         RecordKind::AAAA(addr) => Some(addr.into()),
