@@ -3,7 +3,7 @@
 mod media;
 mod cast;
 
-use std::io::{self, Write};
+use std::{io::{self, Write}, thread};
 use std::fs::File;
 
 use cast::Caster;
@@ -18,13 +18,49 @@ async fn main() {
     let device_ip = device_ips.first().unwrap();
     
     println!("Starting cast.");
-    let caster = Caster::spawn(device_ip.to_string()).unwrap();
+    let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel::<()>();
+    let (_handle, caster) = Caster::launch_media(&device_ip.to_string(), shutdown_rx).unwrap();
+    
+    let (input_tx, input_rx) = std::sync::mpsc::channel::<String>();
+
+    thread::spawn(move || {
+        loop {
+            input_tx.send(get_input(">")).unwrap();
+        }
+    });
+
+    // Main thread loop
+    let mut last_status = cast::MediaStatus::Inactive;
     loop{
-        match &get_input(">")[..] {
-            "p" => {caster.pause().unwrap();},
-            "l" => {caster.resume().unwrap();},
-            _ => {},
+        // Handle input events
+        if let Ok(input) = input_rx.try_recv(){
+            match &input[..] {
+                "pause" => {caster.pause().unwrap();},
+                "play" => {caster.resume().unwrap();},
+                "stop" => {caster.stop().unwrap();},
+                "seek" => {caster.seek(29.0).unwrap();},
+                "kill" => {shutdown_tx.send(()).unwrap();},
+                "status" => {println!("[Media Status] {:?}", last_status);}
+                _ => {},
+            }
         };
+        
+        // Handle media status events
+        if let Ok(msg) = caster.status_rx.try_recv(){
+            last_status = msg;
+
+            // Check if the caster has stopped
+            if let cast::MediaStatus::Inactive = &last_status {
+                println!("Media inactive, shutting down.");
+                shutdown_tx.send(()).unwrap();
+                break;
+            }
+        }
+
+        // Handle device status updates 
+        if let Ok(_) = caster.device_rx.try_recv() {
+            //println!("{}", msg);
+        }
     }
 }      
 
