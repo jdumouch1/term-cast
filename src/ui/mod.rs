@@ -13,8 +13,15 @@ pub enum LogLevel {
     Error,  
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum Mode {
+    Control,
+    Input,
+    Help,
+}
+
 pub struct Model {
-    input_mode: bool,           // Switch input event handling
+    mode: Mode,                 // Switch input event handling
     input_cursor: usize,        // Cursor for text editing/input  
     input_string: String,       // String buffer for input text
     log_items: VecDeque<(LogLevel, String)>,    // Buffer for logs
@@ -24,7 +31,7 @@ pub struct Model {
 impl Model {
     pub fn new(shutdown_tx: Sender<()>) -> Self {
         Self {
-            input_mode: false,
+            mode: Mode::Control,
             input_cursor: 0,
             input_string: String::default(),
             log_items: VecDeque::with_capacity(1024),
@@ -36,10 +43,10 @@ impl Model {
     /// This internally handles input modes.
     pub fn handle_key_event(&mut self, event: KeyEvent) {
         // Pass event to appropriate handler
-        if !self.input_mode {
-            self.control_mode_handler(event);
-        }else{
-            self.input_mode_handler(event);
+        match self.mode {
+            Mode::Input => self.input_mode_handler(event),
+            Mode::Help => self.help_mode_handler(event),
+            Mode::Control => self.control_mode_handler(event),
         }
     }
 
@@ -50,8 +57,8 @@ impl Model {
     pub fn get_input_span(&self) -> Spans {
         let in_str = &self.input_string;
         let cursor = self.input_cursor;
-        match self.input_mode {
-            true => {
+        match self.mode {
+            Mode::Input => {
                 // Build a Spans with emphasized cursor
                 let mut spans: Vec<Span> = Vec::default();
                 if in_str.len() > 0 {
@@ -76,7 +83,7 @@ impl Model {
                 
                 Spans::from(spans)
             },
-            false => Spans::from(&in_str[..]),
+            _ => Spans::from(&in_str[..]),
         }
     }
     
@@ -94,6 +101,10 @@ impl Model {
     /// Return a reference to the log deque.
     pub fn get_log_items(&self) -> &VecDeque<(LogLevel, String)> {
         &self.log_items
+    }
+
+    pub fn get_mode(&self) -> &Mode {
+        &self.mode
     }
 }
 

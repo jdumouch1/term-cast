@@ -1,13 +1,22 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+pub mod cast;
 mod media;
-mod cast;
 mod ui;
 
 use event::KeyModifiers;
 use ui::Model;
-use std::{io::{ Write, stdout }, panic::PanicInfo, panic, sync::mpsc, thread::JoinHandle, sync::mpsc::Sender, thread, time::{ Duration, SystemTime }};
+use std::{
+    panic, 
+    thread, 
+    io::{ Write, stdout }, 
+    panic::PanicInfo, 
+    sync::mpsc, 
+    thread::JoinHandle, 
+    sync::mpsc::Sender, 
+    time::{ Duration, SystemTime }
+};
 use tui::{
     backend::CrosstermBackend,
     Terminal,
@@ -44,6 +53,7 @@ async fn main() {
     start_ui().unwrap();
 }      
 
+/// Swap the terminal to a TUI mode and begin a blocking UI loop. 
 fn start_ui() -> Result<()> {
     enable_raw_mode().unwrap();
     let mut stdout = stdout();
@@ -57,7 +67,7 @@ fn start_ui() -> Result<()> {
     
     // Spawn an event thread
     let (event_tx, event_rx) = mpsc::channel::<UIEvent>();
-    spawn_event_loop(event_tx).unwrap();
+    spawn_event_loop(event_tx, 250).unwrap();
 
     // Main UI loop
     loop {
@@ -91,10 +101,14 @@ fn start_ui() -> Result<()> {
     Ok(())
 } 
 
-fn spawn_event_loop(event_tx: Sender<UIEvent>) -> Result<JoinHandle<()>> {
-    let handle = thread::spawn(move || {
+/// Spawn a thread that hooks into user events as well as emits
+/// a tick event at a given interval.
+fn spawn_event_loop(event_tx: Sender<UIEvent>, tick_rate: u64) 
+    -> Result<JoinHandle<()>> {
+    
+        let handle = thread::spawn(move || {
         let mut last_tick = SystemTime::now();
-        let tick_rate = Duration::from_millis(250);
+        let tick_rate = Duration::from_millis(tick_rate);
         loop {
             let elapsed = last_tick.elapsed().unwrap();
             if event::poll(tick_rate).unwrap() {
@@ -114,19 +128,23 @@ fn spawn_event_loop(event_tx: Sender<UIEvent>) -> Result<JoinHandle<()>> {
 }
 
 #[allow(dead_code)]
+/// Resize the terminal to force a complete redraw.
 fn force_refresh(terminal: &mut CrossTerminal) -> Result<()> {
     let size = terminal.get_frame().size();
     terminal.resize(size).unwrap();
     Ok(())
 }
 
-fn kill_terminal(){ //backend: &mut CrosstermBackend<std::io::Stdout>) {
+/// Revert the terminal session to a normal state.
+fn kill_terminal(){
     execute!(stdout(),
         LeaveAlternateScreen,
         DisableMouseCapture).unwrap();
     disable_raw_mode().unwrap();
 }
 
+/// Provides the the program a chance to revert the terminal 
+/// to a normal state.  
 fn panic_hook(info: &PanicInfo<'_>){
     kill_terminal();
     eprintln!("{:?}", info);

@@ -7,7 +7,7 @@ fn input_mode_backspace(){
     // Setup the model in input mode
     let (tx, _rx) = std::sync::mpsc::channel::<()>();
     let mut model = super::Model::new(tx);
-    model.input_mode = true;
+    model.mode = super::Mode::Input;
 
     // 0 Length string
     model.handle_key_event(backspace.clone());
@@ -37,7 +37,8 @@ fn input_mode_delete(){
     // Setup the model in input mode
     let (tx, _rx) = std::sync::mpsc::channel::<()>();
     let mut model = super::Model::new(tx);
-    model.input_mode = true;
+    model.mode = super::Mode::Input;
+
 
     // 0 Length string
     model.handle_key_event(delete.clone());
@@ -65,9 +66,10 @@ fn input_mode_esc() {
     // Setup the model in input mode
     let (tx, _rx) = std::sync::mpsc::channel::<()>();
     let mut model = super::Model::new(tx);
-    model.input_mode = true;
+    model.mode = super::Mode::Input;
+
 
     // Test that esc cancelled input mode
     model.handle_key_event(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-    assert!(!model.input_mode);
+    assert_ne!(model.mode, super::Mode::Input);
 }

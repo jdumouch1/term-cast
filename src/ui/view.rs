@@ -1,10 +1,41 @@
 use crate::CrossTerminal;
 
 use super::{LogLevel, Model};
-use tui::{Frame, Terminal, backend::{Backend, CrosstermBackend}, layout::{Constraint, Layout}, layout::Direction, layout::{Corner, Rect}, style::Modifier, style::Style, text::Span, text::Spans, widgets::Block, widgets::List, widgets::ListItem, widgets::{Borders, Paragraph, Wrap}};
+use tui::{
+    Frame, Terminal, 
+    backend::{Backend, CrosstermBackend}, 
+    layout::{Constraint, Layout, Direction, Corner, Rect}, 
+    style::{Modifier, Style},
+    text::{Span, Spans}, 
+    widgets::{Block, List, ListItem, Borders, Paragraph, Wrap}
+};
+
 
 pub fn render<B: Backend>(f: &mut Frame<B>, model: &Model) {
+    match model.get_mode() {
+        super::Mode::Help => render_help(f, model),
+        _ => render_control(f, model),
+    }
+}
 
+fn render_help<B: Backend>(f: &mut Frame<B>, _model: &Model) {
+    let chunk = Layout::default()
+        .constraints([Constraint::Percentage(100)].as_ref())
+        .margin(1)
+        .split(f.size());
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Help:");
+
+    let text = Spans::default();
+    let paragraph = Paragraph::new(text)
+        .block(block);
+
+    f.render_widget(paragraph, chunk[0])
+}
+
+fn render_control<B: Backend>(f: &mut Frame<B>, model: &Model) {
     // Split terminal into two vertical blocks
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
