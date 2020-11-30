@@ -10,15 +10,15 @@ mod input;
 pub enum LogLevel {
     General,
     Debug,
-    Error,
+    Error,  
 }
 
 pub struct Model {
-    input_mode: bool,
-    input_cursor: usize,
-    input_string: String,
-    log_items: VecDeque<(LogLevel, String)>,
-    shutdown_tx: Sender<()>,
+    input_mode: bool,           // Switch input event handling
+    input_cursor: usize,        // Cursor for text editing/input  
+    input_string: String,       // String buffer for input text
+    log_items: VecDeque<(LogLevel, String)>,    // Buffer for logs
+    shutdown_tx: Sender<()>,    // Sender to close program
 }
 
 impl Model {
@@ -32,6 +32,8 @@ impl Model {
         }
     }
 
+    /// Uses a passed KeyEvent to update the model appropriately.  
+    /// This internally handles input modes.
     pub fn handle_key_event(&mut self, event: KeyEvent) {
         // Pass event to appropriate handler
         if !self.input_mode {
@@ -89,6 +91,7 @@ impl Model {
         self.log_items.push_front((level, entry));
     }
 
+    /// Return a reference to the log deque.
     pub fn get_log_items(&self) -> &VecDeque<(LogLevel, String)> {
         &self.log_items
     }
