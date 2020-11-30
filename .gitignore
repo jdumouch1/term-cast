@@ -1,4 +1,11 @@
+# Binaries
 /target
+# dotfiles
+.*
+
+# Video files
 *.mp4
 *.mkv
-*.json
+
+# Unignore gitignore
+!.gitignore

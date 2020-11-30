@@ -1,99 +1,133 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 mod media;
 mod cast;
+mod ui;
 
-use std::{io::{self, Write}, thread};
-use std::fs::File;
+use event::KeyModifiers;
+use ui::Model;
+use std::{io::{ Write, stdout }, panic::PanicInfo, panic, sync::mpsc, thread::JoinHandle, sync::mpsc::Sender, thread, time::{ Duration, SystemTime }};
+use tui::{
+    backend::CrosstermBackend,
+    Terminal,
+};
+use crossterm::{
+    terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, 
+        enable_raw_mode, disable_raw_mode
+    },
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, 
+        Event, KeyCode, KeyEvent,
+    },
+    execute,
+};
 
-use cast::Caster;
+type Result<T> = std::result::Result<T, UIError>;
+type CrossTerminal = Terminal<CrosstermBackend<std::io::Stdout>>;
+
+#[derive(Debug)]
+enum UIError {}
+
+enum UIEvent {
+    Input(KeyEvent),
+    Tick,
+}
 
 #[tokio::main]
 async fn main() {
-    let media_file = String::from("test.mp4"); //select_file();
-    println!("Hosting media.");
-    let (_addr, _shutdown) = media::host_media(media_file).await.unwrap();
-    println!("Finding chromecasts.");
-    let device_ips = cast::find_device_ips().await.unwrap();
-    let device_ip = device_ips.first().unwrap();
-    
-    println!("Starting cast.");
-    let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel::<()>();
-    let (_handle, caster) = Caster::launch_media(&device_ip.to_string(), shutdown_rx).unwrap();
-    
-    let (input_tx, input_rx) = std::sync::mpsc::channel::<String>();
+    panic::set_hook(Box::new(|info|{
+        panic_hook(info);
+    }));
 
-    thread::spawn(move || {
+    start_ui().unwrap();
+}      
+
+fn start_ui() -> Result<()> {
+    enable_raw_mode().unwrap();
+    let mut stdout = stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture).unwrap();
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).unwrap();
+
+    // Create a model-controller with a shutdown sender
+    let (exit_tx, exit_rx) = mpsc::channel::<()>();
+    let mut model = Model::new(exit_tx);
+    
+    // Spawn an event thread
+    let (event_tx, event_rx) = mpsc::channel::<UIEvent>();
+    spawn_event_loop(event_tx).unwrap();
+
+    // Main UI loop
+    loop {
+        terminal.draw(|f| ui::view::render(f, &model)).unwrap();
+
+        if let Ok(event) = event_rx.recv() {
+            match event {
+                UIEvent::Input(key_ev) => {
+                    if let KeyModifiers::CONTROL = key_ev.modifiers {
+                        if key_ev.code == KeyCode::Char('c'){
+                            break;
+                        }
+                    }
+
+                    // Forward key presses to the model
+                    model.handle_key_event(key_ev);
+            }
+                UIEvent::Tick => {}
+            }
+        } 
+
+        // Exit on a shutdown signal or if the shutdown sender is dropped
+        match exit_rx.try_recv() {
+            Ok(_) | Err(mpsc::TryRecvError::Disconnected) => {break;},
+            _=> {}
+        }
+    }
+
+    kill_terminal();
+        
+    Ok(())
+} 
+
+fn spawn_event_loop(event_tx: Sender<UIEvent>) -> Result<JoinHandle<()>> {
+    let handle = thread::spawn(move || {
+        let mut last_tick = SystemTime::now();
+        let tick_rate = Duration::from_millis(250);
         loop {
-            input_tx.send(get_input(">")).unwrap();
+            let elapsed = last_tick.elapsed().unwrap();
+            if event::poll(tick_rate).unwrap() {
+                if let Event::Key(key) = event::read().unwrap() {
+                    event_tx.send(UIEvent::Input(key)).unwrap();
+                }
+            }
+
+            if elapsed >= tick_rate {
+                event_tx.send(UIEvent::Tick).unwrap();
+                last_tick = SystemTime::now();
+            }
         }
     });
 
-    // Main thread loop
-    let mut last_status = cast::MediaStatus::Inactive;
-    loop{
-        // Handle input events
-        if let Ok(input) = input_rx.try_recv(){
-            match &input[..] {
-                "pause" => {caster.pause().unwrap();},
-                "play" => {caster.resume().unwrap();},
-                "stop" => {caster.stop().unwrap();},
-                "seek" => {caster.seek(29.0).unwrap();},
-                "kill" => {shutdown_tx.send(()).unwrap();},
-                "status" => {println!("[Media Status] {:?}", last_status);}
-                _ => {},
-            }
-        };
-        
-        // Handle media status events
-        if let Ok(msg) = caster.status_rx.try_recv(){
-            last_status = msg;
-
-            // Check if the caster has stopped
-            if let cast::MediaStatus::Inactive = &last_status {
-                println!("Media inactive, shutting down.");
-                shutdown_tx.send(()).unwrap();
-                break;
-            }
-        }
-
-        // Handle device status updates 
-        if let Ok(_) = caster.device_rx.try_recv() {
-            //println!("{}", msg);
-        }
-    }
-}      
-
-fn _select_file() -> String {
-    println!("Select a file to cast:");
-    let mut input = String::new();
-    while input.is_empty() {
-        input = get_input("> ");
-        if input.len() > 4 && &input[input.len()-4..] == ".mp4" {
-            if let Ok(_) = File::open(&input){
-                return String::from(input);
-            }else{
-                println!("File not found.");
-            }
-        }
-        else {
-            println!("Only .mp4 files are supported.");
-        }
-        input = String::new();
-    }
-    
-    return String::new();
+    Ok(handle)
 }
 
-fn get_input(prompt: &str) -> String {
-    // Print the prompt immediately
-    print!("{}", prompt);
-    io::stdout().flush().unwrap();
+#[allow(dead_code)]
+fn force_refresh(terminal: &mut CrossTerminal) -> Result<()> {
+    let size = terminal.get_frame().size();
+    terminal.resize(size).unwrap();
+    Ok(())
+}
 
-    // Read user input to a buffer
-    let mut buffer = String::new();
-    io::stdin().read_line(&mut buffer).unwrap();
+fn kill_terminal(){ //backend: &mut CrosstermBackend<std::io::Stdout>) {
+    execute!(stdout(),
+        LeaveAlternateScreen,
+        DisableMouseCapture).unwrap();
+    disable_raw_mode().unwrap();
+}
 
-    // Trim newline
-    String::from(buffer.trim_end())
+fn panic_hook(info: &PanicInfo<'_>){
+    kill_terminal();
+    eprintln!("{:?}", info);
 }

@@ -6,15 +6,16 @@ edition = "2018"
 
 [dependencies]
 # Async
-tokio = { version = "0.2", features = ["full", "sync"] } 
+tokio = { version = "0.3.4", features = ["full", "sync"] } 
 
 # Chromecast
-rust_cast = "0.15.1" 
+rust_cast = "0.15.0" 
 mdns = "1.1.0"
 futures-util = "*"
 futures = "*"
 warp = "0.2"
 resolv = "0.2.0"
 
-# Video Conversion
-ffmpeg = { package ="ffmpeg-next", version= "4.3.6" }
+# TUI
+tui = { version = "0.10", default-features = false, features = ['crossterm'] }
+crossterm = { version = "0.17", features = ["event-stream"] }
