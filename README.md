@@ -1,6 +1,8 @@
 # term-cast
 
-Once completed, term-cast is a cross-platform TUI Chromecast controller that can play files directly from a host computer. This project is directly inspired by Gnomecast and Videostream while aiming to provide a more lightweight, terminal-based, cross-platform alternative. 
+Once completed, term-cast is a cross-platform TUI Chromecast controller that can play files directly from a host computer. This project is directly inspired by Gnomecast and Videostream while aiming to provide a more lightweight, terminal-based, cross-platform alternative.  
+
+Currently, only Windows and Linux are supported platforms. MacOS may work, however it is not actively tested.   
 
 ## Acknowledgments
 

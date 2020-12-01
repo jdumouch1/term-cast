@@ -19,3 +19,5 @@ resolv = "0.2.0"
 # TUI
 tui = { version = "0.10", default-features = false, features = ['crossterm'] }
 crossterm = { version = "0.17", features = ["event-stream"] }
+
+dirs = { version = "3.0.1" }
