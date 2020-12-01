@@ -1,18 +1,15 @@
-use crate::CrossTerminal;
-
-use super::{LogLevel, Model};
+use super::Model;
 use tui::{
-    Frame, Terminal, 
-    backend::{Backend, CrosstermBackend}, 
+    Frame, 
+    backend::Backend, 
     layout::{Constraint, Layout, Direction, Corner, Rect}, 
-    style::{Modifier, Style},
-    text::{Span, Spans}, 
+    text::Spans, 
     widgets::{Block, List, ListItem, Borders, Paragraph, Wrap}
 };
 
 
 pub fn render<B: Backend>(f: &mut Frame<B>, model: &Model) {
-    match model.get_mode() {
+    match &model.mode {
         super::Mode::Help => render_help(f, model),
         _ => render_control(f, model),
     }
@@ -77,9 +74,8 @@ fn draw_log<B: Backend>(f: &mut Frame<B>, area: Rect, model: &Model){
         .title("Log:");
 
     
-    let items = model.get_log_items().iter()
+    let items = (&model.log).iter()
         .take(64)                               // Take first 64 elements
-        .filter(|x| (x.0 == LogLevel::General)) // Filter by LogLevel 
         .map(|x| ListItem::new(&(x.1)[..]))     // Convert to ListItems
         .collect::<Vec<ListItem>>();            // iter to Vec<ListItem>
     

@@ -1,20 +1,17 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use warp::body::form;
-
-use super::Mode;
+use crossterm::event::{KeyCode, KeyEvent};
+use super::{Controller, Mode};
 
 
-impl super::Model {
-
+impl Controller {
     /// Provides key handling while in the help menu
     pub fn help_mode_handler(&mut self, event: KeyEvent){
         match event.code {
             KeyCode::Esc | KeyCode::Enter => {
-                self.mode = Mode::Control;
+                self.model.mode = Mode::Control;
             }
             KeyCode::Char(ch) => {
                 match ch {
-                    'q' => self.mode = Mode::Control, 
+                    'q' => self.model.mode = Mode::Control, 
                     _=>{}
                 }
             }
@@ -33,25 +30,26 @@ impl super::Model {
             KeyCode::Delete => {}
             KeyCode::Char(ch) => {
                 match ch {
-                    '?' => { self.mode = Mode::Help; }
-                    '/' => { self.mode = Mode::Input; }
-                    'q' => { self.shutdown_tx.send(()).unwrap(); },
+                    '?' => { self.model.mode = Mode::Help; }
+                    '/' => { self.model.mode = Mode::Input; }
+                    'q' => { let _ = self.shutdown_tx.send(()); },
                     _ => {},
                 }
             }
             _ => {}
         }
     }
+    
     /// Handle key events for situations in which the user 
     /// is entering a string.   
     /// This provides basic text input/editing functionality.
     /// *Note: This does not correctly handle unicode.*
     pub fn input_mode_handler(&mut self, event: KeyEvent) {
-        let len = &self.input_string.len();
-        let cursor = &mut self.input_cursor;
-        let in_str = &mut self.input_string;
+        let len = &self.model.input_string.len();
+        let cursor = &mut self.model.input_cursor;
+        let in_str = &mut self.model.input_string;
         match event.code {
-            KeyCode::Esc => {self.mode = Mode::Control;}
+            KeyCode::Esc => {self.model.mode = Mode::Control;}
             KeyCode::Delete => {
                 // Delete the char on the cursor
                 if *len > 0 && *cursor < *len {
@@ -71,7 +69,7 @@ impl super::Model {
             }
             KeyCode::Enter => {
                 // Run active element
-                self.mode = super::Mode::Control;
+                let _ = self.queue_file();
             }
             KeyCode::Left => {
                 if *cursor > 0 {*cursor -= 1;}  
